@@ -8,7 +8,7 @@ from uploader import upload_data
 import os
 from dotenv import load_dotenv
 
-app = Flask(__name__)
+myapp = Flask(__name__)
 
 load_dotenv()
 account_name = os.environ.get("ACCOUNT_NAME")
@@ -35,11 +35,11 @@ else:
 
 
 
-@app.route('/')
+@myapp.route('/')
 def hello_world():
     return 'Hello World'
 
-@app.route('/add',methods=['POST'])
+@myapp.route('/add',methods=['POST'])
 def add():
     try:
         upload_data(log_info(" -------- Started addition -------- "),blob_client)
@@ -61,7 +61,7 @@ def add():
         upload_data(log_error("Something went wrong"))
         return "Something went wrong"
 
-@app.route('/div',methods=['POST'])
+@myapp.route('/div',methods=['POST'])
 def div():
     try:
         upload_data(log_info(" -------- Started division -------- "),blob_client)
@@ -95,5 +95,5 @@ def div():
     
 
 if __name__ == '__main__':
-    app.run(port=8000)
+    myapp.run(port=8000)
 
