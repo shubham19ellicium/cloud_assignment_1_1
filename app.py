@@ -35,9 +35,17 @@ else:
     upload_data(log_info(f" BLOB '{blob_name}' ALREADY EXIST "),blob_client)
 
 def check_blob_file():
-    flag_store = [True if i['name'] == blob_name else False for i in blob_list]
-    print("FLAG ::::: ",flag_store)
-    if True not in flag_store:
+    blob_list_cont = container_client.list_blobs()
+    blob_flag = []
+    for i in blob_list_cont:
+        print("BLOB LIST ---> ",i['name'])
+        if i['name'] == blob_name:
+            blob_flag.append(True)
+
+    print("BLOB NAME ---> ",blob_name)
+    # blob_flag = [True if i['name'] == blob_name else False for i in blob_list_cont]
+    print("FLAG ::::: ",blob_flag)
+    if True not in blob_flag:
         blob_client.upload_blob(blob_name)
         upload_data(log_info(f"CREATING NEW BLOB WITH NAME : {blob_name} ---> "),blob_client)
     else:
