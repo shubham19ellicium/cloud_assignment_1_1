@@ -11,8 +11,9 @@ from dotenv import load_dotenv
 myapp = Flask(__name__)
 
 load_dotenv()
-account_name = os.environ.get("ACCOUNT_NAME")
-account_key = os.environ.get("ACCOUNT_KEY")
+# account_name = os.environ.get("ACCOUNT_NAME")
+account_name = "logfileadls"
+account_key = os.environ.get("AZURE_DATA_LAKE_KEY")
 
 container_name = 'apilogs'
 blob_name = 'basic_log.log'
