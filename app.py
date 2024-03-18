@@ -13,7 +13,8 @@ myapp = Flask(__name__)
 load_dotenv()
 # account_name = os.environ.get("ACCOUNT_NAME")
 account_name = "logfileadls"
-account_key = os.environ.get("AZURE_DATA_LAKE_KEY")
+# account_key = os.environ.get("AZURE_DATA_LAKE_KEY")
+account_key = os.environ.get("ACCOUNT_KEY")
 
 container_name = 'apilogs'
 blob_name = 'basic_log.log'
@@ -33,6 +34,14 @@ if True not in flag_store:
 else:
     upload_data(log_info(f" BLOB '{blob_name}' ALREADY EXIST "),blob_client)
 
+def check_blob_file():
+    flag_store = [True if i['name'] == blob_name else False for i in blob_list]
+    print("FLAG ::::: ",flag_store)
+    if True not in flag_store:
+        blob_client.upload_blob(blob_name)
+        upload_data(log_info(f"CREATING NEW BLOB WITH NAME : {blob_name} ---> "),blob_client)
+    else:
+        upload_data(log_info(f" BLOB '{blob_name}' ALREADY EXIST "),blob_client)
 
 
 
@@ -43,6 +52,7 @@ def hello_world():
 @myapp.route('/add',methods=['POST'])
 def add():
     try:
+        check_blob_file()
         upload_data(log_info(" -------- Started addition -------- "),blob_client)
         keys_list = ['num_1',"num_2"]
         for key_to_check in keys_list:
@@ -65,6 +75,7 @@ def add():
 @myapp.route('/div',methods=['POST'])
 def div():
     try:
+        check_blob_file()
         upload_data(log_info(" -------- Started division -------- "),blob_client)
         keys_list = ['num_1',"num_2"]
         for key_to_check in keys_list:
