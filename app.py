@@ -77,7 +77,7 @@ def add():
         upload_data(log_info(" -------- Addition completed -------- "),blob_client)
         return jsonify({"data":addition}),200
     except :
-        upload_data(log_error("Something went wrong"))
+        upload_data(log_error("Something went wrong"),blob_client)
         return "Something went wrong"
 
 @myapp.route('/div',methods=['POST'])
