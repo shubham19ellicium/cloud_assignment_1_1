@@ -12,7 +12,8 @@ myapp = Flask(__name__)
 
 load_dotenv()
 # account_name = os.environ.get("ACCOUNT_NAME")
-account_name = "logfileadls"
+# account_name = "logfileadls"
+account_name = "southasiastorageaccount"
 account_key = os.environ.get("AZURE_DATA_LAKE_KEY")
 # account_key = os.environ.get("ACCOUNT_KEY")
 
