@@ -1,120 +1,104 @@
-from flask import Flask, request,jsonify
-from datetime import datetime
-from azure.storage.blob import BlobServiceClient
-from azure.core.exceptions import ResourceNotFoundError
-from logger_log import *
-import traceback
-from uploader import upload_data
+from flask import Flask, request, jsonify
+import logging
+from logging.handlers import RotatingFileHandler
+from azure.storage.filedatalake import DataLakeServiceClient
 import os
-from dotenv import load_dotenv
 
-myapp = Flask(__name__)
+app = Flask(__name__)
 
-load_dotenv()
-# account_name = os.environ.get("ACCOUNT_NAME")
-# account_name = "logfileadls"
-account_name = "southasiastorageaccount"
-account_key = os.environ.get("AZURE_DATA_LAKE_KEY")
-# account_key = os.environ.get("ACCOUNT_KEY")
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
-container_name = 'apilogs'
-blob_name = 'basic_log.log'
+last_log_message = ""
 
-connect_str = f"DefaultEndpointsProtocol=https;AccountName={account_name};AccountKey={account_key};EndpointSuffix=core.windows.net"
-blob_service_client = BlobServiceClient.from_connection_string(connect_str)
-container_client = blob_service_client.get_container_client(container_name)
-blob_list = container_client.list_blobs()
-blob_client = container_client.get_blob_client(blob_name)
+class CustomLogHandler(logging.Handler):
+    def emit(self, record):
+        global last_log_message
+        last_log_message = self.format(record)
 
+handler = CustomLogHandler()
+handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+# handler = RotatingFileHandler('app.log', maxBytes=10000, backupCount=1)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
-flag_store = [True if i['name'] == blob_name else False for i in blob_list]
-print("FLAG ::::: ",flag_store)
-if True not in flag_store:
-    blob_client.upload_blob(blob_name)
-    upload_data(log_info(f"CREATING NEW BLOB WITH NAME : {blob_name} ---> "),blob_client)
-else:
-    upload_data(log_info(f" BLOB '{blob_name}' ALREADY EXIST "),blob_client)
+storage_account_name = 'salogstoragesa'
+storage_account_key = os.environ.get("AZURE_DATA_LAKE_KEY")
+file_system_name = 'apilog'
+directory_name = 'logs'
+file_name = 'app.log'
 
-def check_blob_file():
-    blob_list_cont = container_client.list_blobs()
-    blob_flag = []
-    for i in blob_list_cont:
-        print("BLOB LIST ---> ",i['name'])
-        if i['name'] == blob_name:
-            blob_flag.append(True)
+service_client = DataLakeServiceClient(account_url=f"https://{storage_account_name}.dfs.core.windows.net/",
+                                       credential=storage_account_key)
 
-    print("BLOB NAME ---> ",blob_name)
-    # blob_flag = [True if i['name'] == blob_name else False for i in blob_list_cont]
-    print("FLAG ::::: ",blob_flag)
-    if True not in blob_flag:
-        blob_client.upload_blob(blob_name)
-        upload_data(log_info(f"CREATING NEW BLOB WITH NAME : {blob_name} ---> "),blob_client)
-    else:
-        upload_data(log_info(f" BLOB '{blob_name}' ALREADY EXIST "),blob_client)
+def create_file_in_adls(file_system_name, directory_name, file_name):
+    try:
+        path = f"{directory_name}/{file_name}"
+        file_system_client = service_client.get_file_system_client(file_system_name)
+        file_client = file_system_client.get_file_client(path)
+        file_client.create_file()
+    except Exception as e:
+        logger.exception("Failed to create file in ADLS")
+
+create_file_in_adls(file_system_name, directory_name, file_name)
 
 
+def append_logs_to_adls(message):
+    try:
+        path = f"{directory_name}/{file_name}"
+        file_client = service_client.get_file_client(file_system_name, path)
+        file_size = file_client.get_file_properties().size
+        file_contents = f"{message}\n"
+        file_client.append_data(file_contents, offset=file_size, length=len(file_contents))
+        file_client.flush_data(file_size + len(file_contents))
+        
+        logger.info("Data appended and flushed successfully.")
+    except Exception as e:
+        logger.exception("Failed to append logs")
 
-@myapp.route('/')
-def hello_world():
-    return 'Hello World'
+@app.route('/test', methods=['POST'])
+def test():
+    try:
+        name = request.json["name"]
+        logger.info(f"Name is : {name}")
+        append_logs_to_adls(last_log_message)
+        return jsonify({'result': name}), 200
+    except Exception as e:
+        logger.exception("An error occurred during addition")
+        append_logs_to_adls(last_log_message)
+        return jsonify({'error': str(e)}), 500
 
-@myapp.route('/add',methods=['POST'])
+
+@app.route('/add', methods=['POST'])
 def add():
     try:
-        check_blob_file()
-        upload_data(log_info(" -------- Started addition -------- "),blob_client)
-        keys_list = ['num_1',"num_2"]
-        for key_to_check in keys_list:
-            if key_to_check not in request.json:
-                upload_data(log_error(f"The key '{key_to_check}' is not present in the JSON request."),blob_client)
-                upload_data(log_info(" -------- Addition process stoped -------- "),blob_client)
-                return "Incorrect input (Provide : num_1,num_2)"
-            
-        num_1 = request.json["num_1"]
-        num_2 = request.json["num_2"]
-        addition = num_1 + num_2
-        upload_data(log_info(f"Number 1 :: {num_1}"),blob_client)
-        upload_data(log_info(f"Number 2 :: {num_2}"),blob_client)
-        upload_data(log_info(" -------- Addition completed -------- "),blob_client)
-        return jsonify({"data":addition}),200
-    except :
-        upload_data(log_error("Something went wrong"),blob_client)
-        return "Something went wrong"
+        num1 = request.json["num_1"]
+        num2 = request.json["num_2"]
+        result = num1 + num2
+        logger.info(f"Result : {result}")
+        print("FINAL MESSAGE :: ",last_log_message)
+        append_logs_to_adls(last_log_message)
+        return jsonify({'result': result}), 200
+    except Exception as e:
+        logger.exception("An error occurred during addition")
+        append_logs_to_adls(last_log_message)
+        return jsonify({'error': str(e)}), 500
 
-@myapp.route('/div',methods=['POST'])
+@app.route('/div', methods=['POST'])
 def div():
     try:
-        check_blob_file()
-        upload_data(log_info(" -------- Started division -------- "),blob_client)
-        keys_list = ['num_1',"num_2"]
-        for key_to_check in keys_list:
-            if key_to_check not in request.json:
-                upload_data(log_error(f"The key '{key_to_check}' is not present in the JSON request."),blob_client)
-                upload_data(log_info(" -------- Division process stoped -------- "),blob_client)
-                return "Incorrect input (Provide : num_1,num_2)"
-        
-        num_1 = request.json["num_1"]
-        num_2 = request.json["num_2"]
-
-        if num_2 == 0:
-            print("In zero")
-            raise ZeroDivisionError("Attempted to divide by zero.")
-            
-
-        division = num_1 / num_2
-        upload_data(log_info(f"Number 1 :: {num_1}"),blob_client)
-        upload_data(log_info(f"Number 2 :: {num_2}"),blob_client)
-        upload_data(log_info(" -------- division completed -------- "),blob_client)
-        return jsonify({"data":division}),200
+        num1 = request.json["num_1"]
+        num2 = request.json["num_2"]
+        result = num1 / num2
+        logger.info(f"Result : {result}")
+        append_logs_to_adls(last_log_message)
+        return jsonify({'result': result}), 200
     except ZeroDivisionError as e:
-        upload_data(log_error(f"ZeroDivisionError: {str(e)}"),blob_client)
-        return "Division by zero is not allowed", 400
+        logger.exception("Attempted division by zero")
+        append_logs_to_adls(last_log_message)
+        return jsonify({'error': str(e)}), 500
     except Exception as e:
-        print(" ----> ",traceback.format_exc())
-        upload_data(log_error("Something went wrong"),blob_client)
-        return "Something went wrong"
-    
-
-if __name__ == '__main__':
-    myapp.run(port=8000)
-
+        logger.exception("An error occurred during division")
+        append_logs_to_adls(last_log_message)
+        return jsonify({'error': str(e)}), 500
