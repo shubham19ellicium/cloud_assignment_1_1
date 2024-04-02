@@ -4,7 +4,7 @@ from logging.handlers import RotatingFileHandler
 from azure.storage.filedatalake import DataLakeServiceClient
 import os
 
-app = Flask(__name__)
+myapp = Flask(__name__)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -57,7 +57,13 @@ def append_logs_to_adls(message):
     except Exception as e:
         logger.exception("Failed to append logs")
 
-@app.route('/test', methods=['POST'])
+@myapp.route("/")
+def hello_world():
+    logger.info(f"Home")
+    append_logs_to_adls(last_log_message)
+    return 'Hello World'
+
+@myapp.route('/test', methods=['POST'])
 def test():
     try:
         name = request.json["name"]
@@ -70,7 +76,7 @@ def test():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/add', methods=['POST'])
+@myapp.route('/add', methods=['POST'])
 def add():
     try:
         num1 = request.json["num_1"]
@@ -85,7 +91,7 @@ def add():
         append_logs_to_adls(last_log_message)
         return jsonify({'error': str(e)}), 500
 
-@app.route('/div', methods=['POST'])
+@myapp.route('/div', methods=['POST'])
 def div():
     try:
         num1 = request.json["num_1"]
@@ -102,3 +108,6 @@ def div():
         logger.exception("An error occurred during division")
         append_logs_to_adls(last_log_message)
         return jsonify({'error': str(e)}), 500
+    
+if __name__ == '__main__':
+    myapp.run(port=8000)
