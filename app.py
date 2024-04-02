@@ -25,6 +25,7 @@ logger.addHandler(handler)
 
 storage_account_name = 'salogstoragesa'
 storage_account_key = os.environ.get("AZURE_DATA_LAKE_KEY")
+# storage_account_key = os.environ.get("ACCOUNT_KEY")
 file_system_name = 'apilog'
 directory_name = 'logs'
 file_name = 'app.log'
@@ -48,6 +49,9 @@ def append_logs_to_adls(message):
     try:
         path = f"{directory_name}/{file_name}"
         file_client = service_client.get_file_client(file_system_name, path)
+        exist = file_client.exists()
+        if exist == False:
+            create_file_in_adls(file_system_name, directory_name, file_name)
         file_size = file_client.get_file_properties().size
         file_contents = f"{message}\n"
         file_client.append_data(file_contents, offset=file_size, length=len(file_contents))
